@@ -1,3 +1,4 @@
+import asyncio
 import os
 import glob
 import logging
@@ -264,6 +265,7 @@ def main():
     app.add_handler(MessageHandler(filters.Document.ALL, handle_other))
 
     logging.info("Бот запущен")
+    asyncio.set_event_loop(asyncio.new_event_loop())
     app.run_polling()
 
 
