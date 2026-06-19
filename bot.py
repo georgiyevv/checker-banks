@@ -70,8 +70,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Бот проверки чеков Озон Банка\n"
         "\n"
         "Как пользоваться:\n"
-        "• Отправьте ZIP-архив с PDF-чеками\n"
-        "• Или отправьте один PDF\n"
+        "• Упакуйте PDF-чеки в ZIP и отправьте архив\n"
         "\n"
         "Команды:\n"
         "/report - отчёт по всем проверенным PDF за сессию\n"
@@ -184,39 +183,12 @@ async def handle_zip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-# ── одиночный PDF ─────────────────────────────────────────────────────────────
-
-async def handle_pdf(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    doc = update.message.document
-    msg = await update.message.reply_text("Проверяю…")
-
-    user_id = update.effective_user.id
-    dedup   = DedupStore(path=_dedup_path(user_id))
-
-    tg_file = await context.bot.get_file(doc.file_id)
-    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
-        await tg_file.download_to_drive(tmp.name)
-        tmp_path = tmp.name
-
-    try:
-        res = check_receipt(tmp_path, dedup=dedup)
-        dedup.register(tmp_path, res.get("fields", {}), label=doc.file_name)
-        _user_results(context).append((doc.file_name, res))
-        await msg.edit_text(_format_verdict(doc.file_name, res))
-    except Exception as e:
-        logging.exception("Ошибка при обработке %s", doc.file_name)
-        await msg.edit_text(f"Ошибка обработки файла: {e}")
-    finally:
-        os.unlink(tmp_path)
-
-
 # ── прочие файлы ──────────────────────────────────────────────────────────────
 
 async def handle_other(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "Принимаю:\n"
-        "• ZIP-архив с PDF-чеками — для пакетной проверки\n"
-        "• Отдельный PDF-файл — для быстрой проверки"
+        "Принимаю только ZIP-архив с PDF-чеками.\n"
+        "Упакуйте чеки в ZIP и отправьте."
     )
 
 
@@ -254,14 +226,7 @@ def main():
     app.add_handler(CommandHandler("report", cmd_report))
     app.add_handler(CommandHandler("reset",  cmd_reset))
 
-    # ZIP-архив
-    app.add_handler(MessageHandler(
-        filters.Document.FileExtension("zip"),
-        handle_zip,
-    ))
-    # одиночный PDF
-    app.add_handler(MessageHandler(filters.Document.PDF, handle_pdf))
-    # всё остальное
+    app.add_handler(MessageHandler(filters.Document.FileExtension("zip"), handle_zip))
     app.add_handler(MessageHandler(filters.Document.ALL, handle_other))
 
     logging.info("Бот запущен")
