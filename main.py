@@ -359,7 +359,7 @@ class OzonReceiptChecker:
         if self.dedup is None:
             return
         for hit in self.dedup.check(self.path, self.fields):
-            self.hard_fails.append(f"дубликат: {hit}")
+            self.soft_flags.append(f"дубликат: {hit}")
 
     def analyze(self):
         if not self.text:
